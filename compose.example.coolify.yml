@@ -1,6 +1,6 @@
 services:
   maybe:
-    image: 'ghcr.io/we-promise/sure:latest'
+    image: 'ghcr.io/erykkruk/sure-raven:latest'
     volumes:
       - 'app_storage:/rails/storage'
     environment:
@@ -32,7 +32,7 @@ services:
       timeout: 10s
       retries: 5
   worker:
-    image: 'ghcr.io/we-promise/sure:latest'
+    image: 'ghcr.io/erykkruk/sure-raven:latest'
     command: 'bundle exec sidekiq'
     environment:
       - 'POSTGRES_USER=${SERVICE_USER_POSTGRES}'
