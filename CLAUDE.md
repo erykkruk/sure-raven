@@ -18,9 +18,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Linting & Formatting
 - `bin/rubocop` - Run Ruby linter
-- `npm run lint` - Check JavaScript/TypeScript code
-- `npm run lint:fix` - Fix JavaScript/TypeScript issues
-- `npm run format` - Format JavaScript/TypeScript code
+- `npm run lint` - Check JavaScript/TypeScript code (using Biome)
+- `npm run lint:fix` - Fix JavaScript/TypeScript issues (using Biome)
+- `npm run format` - Format JavaScript/TypeScript code (using Biome)
+- `npm run style:check` - Check code style with Biome
+- `npm run style:fix` - Fix code style issues with Biome
 - `bin/brakeman` - Run security analysis
 
 ### Database
@@ -31,6 +33,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Setup
 - `bin/setup` - Initial project setup (installs dependencies, prepares database)
+- `rake demo_data:default` - Load demo data for development
 
 ## Pre-Pull Request CI Workflow
 
@@ -154,9 +157,20 @@ Sidekiq handles asynchronous tasks:
 ### Development Workflow
 - Feature branches merged to `main`
 - Docker support for consistent environments
-- Environment variables via `.env` files
+- Environment variables via `.env` files (copy from `.env.local.example`)
 - Lookbook for component development (`/lookbook`)
 - Letter Opener for email preview in development
+- Demo credentials for development: `user@example.com` / `Password1!`
+
+## Important Project Context
+
+### Repository Background
+This is "Sure", a community fork of the archived Maybe Finance project. The original Maybe Finance team open-sourced their personal finance app after discontinuing development. This fork maintains the codebase under the AGPLv3 license.
+
+### Branding Guidelines
+- "Maybe" is a trademark of Maybe Finance Inc. and cannot be used in forks
+- "Sure" refers to this community fork
+- Always use "Sure" when referring to this specific implementation
 
 ## Project Conventions
 
@@ -169,6 +183,8 @@ Sidekiq handles asynchronous tasks:
 - Business logic in `app/models/` folder, avoid `app/services/`
 - Use Rails concerns and POROs for organization
 - Models should answer questions about themselves: `account.balance_series` not `AccountSeries.new(account).call`
+- Rails concerns can be "one-off" for organization (not just shared functionality)
+- Concerns should organize around model "traits", not just move code to another spot
 
 ### Convention 3: Hotwire-First Frontend
 - **Native HTML preferred over JS components**
@@ -301,5 +317,6 @@ end
 
 ### Stubs and Mocks
 - Use `mocha` gem
-- Prefer `OpenStruct` for mock instances
-- Only mock what's necessary
+- Prefer `OpenStruct` for mock instances, or mock classes for complex cases
+- Only mock what's necessary - if not testing return values, don't mock return value
+- Never test implementation details of one class in another class's test suite
