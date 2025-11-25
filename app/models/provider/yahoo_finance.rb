@@ -65,32 +65,21 @@ class Provider::YahooFinance < Provider
         if cached_result = get_cached_result(cache_key)
           cached_result
         else
-          # For a single date, we'll fetch a range and find the closest match
-          end_date = date
-          start_date = date - 10.days # Extended range for better coverage
-
-          rates_response = fetch_exchange_rates(
-            from: from,
-            to: to,
-            start_date: start_date,
-            end_date: end_date
-          )
-
-          raise Error, "Failed to fetch exchange rates: #{rates_response.error.message}" unless rates_response.success?
-
-          rates = rates_response.data
-          if rates.length == 1
-            rates.first
-          else
-            # Find the exact date or the closest previous date
-            target_rate = rates.find { |r| r.date == date } ||
-                         rates.select { |r| r.date <= date }.max_by(&:date)
-
-            raise Error, "No exchange rate found for #{from}/#{to} on or before #{date}" unless target_rate
-
-            cache_result(cache_key, target_rate)
-            target_rate
+          # Try direct rate first
+          direct_rate = fetch_single_exchange_rate(from, to, date)
+          if direct_rate
+            cache_result(cache_key, direct_rate)
+            return direct_rate
           end
+
+          # Try triangulation through USD if direct rate fails
+          triangulated_rate = fetch_single_triangulated_rate(from, to, date)
+          if triangulated_rate
+            cache_result(cache_key, triangulated_rate)
+            return triangulated_rate
+          end
+
+          raise Error, "No exchange rate found for #{from}/#{to} on #{date}"
         end
       end
     end
@@ -109,7 +98,8 @@ class Provider::YahooFinance < Provider
         else
           # Try both direct and inverse currency pairs
           rates = fetch_currency_pair_data(from, to, start_date, end_date) ||
-                  fetch_inverse_currency_pair_data(from, to, start_date, end_date)
+                  fetch_inverse_currency_pair_data(from, to, start_date, end_date) ||
+                  fetch_triangulated_rates(from, to, start_date, end_date)
 
           raise Error, "No chart data found for currency pair #{from}/#{to}" unless rates&.any?
 
@@ -387,7 +377,13 @@ class Provider::YahooFinance < Provider
     end
 
     def fetch_currency_pair_data(from, to, start_date, end_date)
-      symbol = "#{from}#{to}=X"
+      # Use crypto format for known cryptocurrencies
+      symbol = if is_cryptocurrency?(from)
+                 "#{from}-#{to}" # Crypto format: ETH-USD, BTC-EUR
+               else
+                 "#{from}#{to}=X" # Fiat format: EURUSD=X
+               end
+               
       fetch_chart_data(symbol, start_date, end_date) do |timestamp, close_rate|
         Rate.new(
           date: Time.at(timestamp).to_date,
@@ -399,7 +395,13 @@ class Provider::YahooFinance < Provider
     end
 
     def fetch_inverse_currency_pair_data(from, to, start_date, end_date)
-      symbol = "#{to}#{from}=X"
+      # Use appropriate format based on currency type
+      symbol = if is_cryptocurrency?(to)
+                 "#{to}-#{from}" # Crypto format: BTC-EUR -> EUR/BTC inverse
+               else
+                 "#{to}#{from}=X" # Fiat format
+               end
+               
       rates = fetch_chart_data(symbol, start_date, end_date) do |timestamp, close_rate|
         Rate.new(
           date: Time.at(timestamp).to_date,
@@ -410,6 +412,80 @@ class Provider::YahooFinance < Provider
       end
 
       rates
+    end
+
+    # Triangulation through USD when direct rate is not available
+    def fetch_triangulated_rates(from, to, start_date, end_date)
+      return nil if from == "USD" || to == "USD" # No need to triangulate if one is already USD
+
+      # Fetch from -> USD rates
+      from_to_usd = fetch_currency_pair_data(from, "USD", start_date, end_date) ||
+                    fetch_inverse_currency_pair_data(from, "USD", start_date, end_date)
+      
+      return nil unless from_to_usd&.any?
+
+      # Fetch USD -> to rates  
+      usd_to_target = fetch_currency_pair_data("USD", to, start_date, end_date) ||
+                      fetch_inverse_currency_pair_data("USD", to, start_date, end_date)
+      
+      return nil unless usd_to_target&.any?
+
+      # Create hash maps for quick lookup by date
+      from_to_usd_map = from_to_usd.index_by(&:date)
+      usd_to_target_map = usd_to_target.index_by(&:date)
+
+      # Calculate triangulated rates for dates where both rates are available
+      triangulated_rates = []
+      (start_date..end_date).each do |date|
+        from_usd_rate = from_to_usd_map[date]
+        usd_target_rate = usd_to_target_map[date]
+        
+        if from_usd_rate && usd_target_rate
+          triangulated_rate = from_usd_rate.rate * usd_target_rate.rate
+          triangulated_rates << Rate.new(
+            date: date,
+            from: from,
+            to: to,
+            rate: triangulated_rate.round(8)
+          )
+        end
+      end
+
+      triangulated_rates.any? ? triangulated_rates : nil
+    end
+
+    # Helper method to fetch single exchange rate directly
+    def fetch_single_exchange_rate(from, to, date)
+      # Try to get rate for a small date range
+      end_date = date
+      start_date = date - 10.days
+
+      rates = fetch_currency_pair_data(from, to, start_date, end_date) ||
+              fetch_inverse_currency_pair_data(from, to, start_date, end_date)
+      
+      return nil unless rates&.any?
+
+      # Find the exact date or closest previous date
+      rates.find { |r| r.date == date } || rates.select { |r| r.date <= date }.max_by(&:date)
+    end
+
+    # Helper method to fetch single triangulated rate
+    def fetch_single_triangulated_rate(from, to, date)
+      return nil if from == "USD" || to == "USD"
+
+      # Get rates for triangulation
+      from_to_usd = fetch_single_exchange_rate(from, "USD", date)
+      usd_to_target = fetch_single_exchange_rate("USD", to, date)
+
+      return nil unless from_to_usd && usd_to_target
+
+      triangulated_rate = from_to_usd.rate * usd_to_target.rate
+      Rate.new(
+        date: date,
+        from: from,
+        to: to,
+        rate: triangulated_rate.round(8)
+      )
     end
 
     def fetch_chart_data(symbol, start_date, end_date, &block)
@@ -625,5 +701,12 @@ class Provider::YahooFinance < Provider
       else
         Error.new(error.message)
       end
+    end
+
+    # Helper method to identify cryptocurrencies
+    # Yahoo Finance uses different symbol format for crypto (ETH-USD) vs fiat (EURUSD=X)
+    def is_cryptocurrency?(currency_code)
+      crypto_currencies = %w[BTC ETH XRP LTC BCH ADA DOT LINK BNB DOGE SOL MATIC AVAX]
+      crypto_currencies.include?(currency_code.to_s.upcase)
     end
 end
