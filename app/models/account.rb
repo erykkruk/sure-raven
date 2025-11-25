@@ -210,6 +210,24 @@ class Account < ApplicationRecord
     accountable_class.long_subtype_label_for(subtype) || accountable_class.display_name
   end
 
+  # Convert balance to family currency using triangulation if needed
+  def converted_balance
+    return balance if currency == family.currency
+    
+    rate = ExchangeRate.find_or_fetch_rate(
+      from: currency,
+      to: family.currency,
+      date: Date.current
+    )
+    
+    if rate
+      balance * rate.rate
+    else
+      Rails.logger.warn "Could not find exchange rate from #{currency} to #{family.currency}"
+      balance
+    end
+  end
+
   # The balance type determines which "component" of balance is being tracked.
   # This is primarily used for balance related calculations and updates.
   #
