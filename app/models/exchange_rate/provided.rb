@@ -18,14 +18,23 @@ module ExchangeRate::Provided
 
       return nil unless response.success? # Provider error
 
-      rate = response.data
-      ExchangeRate.find_or_create_by!(
-        from_currency: rate.from,
-        to_currency: rate.to,
-        date: rate.date,
-        rate: rate.rate
-      ) if cache
-      rate
+      rate_data = response.data
+      if cache
+        ExchangeRate.find_or_create_by!(
+          from_currency: rate_data.from,
+          to_currency: rate_data.to,
+          date: rate_data.date,
+          rate: rate_data.rate
+        )
+      else
+        # Return a temporary ExchangeRate object (not persisted) for consistency
+        ExchangeRate.new(
+          from_currency: rate_data.from,
+          to_currency: rate_data.to,
+          date: rate_data.date,
+          rate: rate_data.rate
+        )
+      end
     end
 
     # @return [Integer] The number of exchange rates synced

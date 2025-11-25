@@ -46,18 +46,33 @@ class BalanceSheet::AccountTotals
 
     def query
       @query ||= Rails.cache.fetch(cache_key) do
-        visible_accounts
-          .joins(ActiveRecord::Base.sanitize_sql_array([
-            "LEFT JOIN exchange_rates ON exchange_rates.date = ? AND accounts.currency = exchange_rates.from_currency AND exchange_rates.to_currency = ?",
-            Date.current,
-            family.currency
-          ]))
-          .select(
-            "accounts.*",
-            "SUM(accounts.balance * COALESCE(exchange_rates.rate, 1)) as converted_balance"
-          )
-          .group(:classification, :accountable_type, :id)
-          .to_a
+        accounts_with_conversion = visible_accounts.map do |account|
+          # Calculate converted balance using ExchangeRate.find_or_fetch_rate
+          # which supports USD triangulation
+          converted_balance = if account.currency == family.currency
+            account.balance
+          else
+            rate = ExchangeRate.find_or_fetch_rate(
+              from: account.currency,
+              to: family.currency,
+              date: Date.current
+            )
+            
+            if rate
+              account.balance * rate.rate
+            else
+              # Fallback to original balance if no rate found
+              Rails.logger.warn "Could not find exchange rate from #{account.currency} to #{family.currency}"
+              account.balance
+            end
+          end
+          
+          # Add converted_balance as a virtual attribute
+          account.define_singleton_method(:converted_balance) { converted_balance }
+          account
+        end
+        
+        accounts_with_conversion
       end
     end
 end

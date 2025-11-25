@@ -69,17 +69,17 @@ class Provider::YahooFinance < Provider
           direct_rate = fetch_single_exchange_rate(from, to, date)
           if direct_rate
             cache_result(cache_key, direct_rate)
-            return direct_rate
+            direct_rate
+          else
+            # Try triangulation through USD if direct rate fails
+            triangulated_rate = fetch_single_triangulated_rate(from, to, date)
+            if triangulated_rate
+              cache_result(cache_key, triangulated_rate)
+              triangulated_rate
+            else
+              raise Error, "No exchange rate found for #{from}/#{to} on #{date}"
+            end
           end
-
-          # Try triangulation through USD if direct rate fails
-          triangulated_rate = fetch_single_triangulated_rate(from, to, date)
-          if triangulated_rate
-            cache_result(cache_key, triangulated_rate)
-            return triangulated_rate
-          end
-
-          raise Error, "No exchange rate found for #{from}/#{to} on #{date}"
         end
       end
     end

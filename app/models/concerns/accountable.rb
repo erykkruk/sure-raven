@@ -57,14 +57,29 @@ module Accountable
     end
 
     def balance_money(family)
-      family.accounts
-            .active
-            .joins(sanitize_sql_array([
-              "LEFT JOIN exchange_rates ON exchange_rates.date = :current_date AND accounts.currency = exchange_rates.from_currency AND exchange_rates.to_currency = :family_currency",
-              { current_date: Date.current.to_s, family_currency: family.currency }
-            ]))
-            .where(accountable_type: self.name)
-            .sum("accounts.balance * COALESCE(exchange_rates.rate, 1)")
+      total = BigDecimal(0)
+      
+      family.accounts.active.where(accountable_type: self.name).find_each do |account|
+        if account.currency == family.currency
+          total += account.balance
+        else
+          # Use ExchangeRate.find_or_fetch_rate which supports USD triangulation
+          rate = ExchangeRate.find_or_fetch_rate(
+            from: account.currency,
+            to: family.currency,
+            date: Date.current
+          )
+          
+          if rate
+            total += account.balance * rate.rate
+          else
+            Rails.logger.warn "Could not find exchange rate from #{account.currency} to #{family.currency} for account #{account.id}"
+            total += account.balance  # Fallback to unconverted balance
+          end
+        end
+      end
+      
+      total
     end
   end
 

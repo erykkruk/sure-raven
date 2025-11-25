@@ -874,12 +874,12 @@ btc:
   html_code: "&#x20bf;"
   symbol: "₿"
   minor_unit: Satoshi
-  minor_unit_conversion: 1000000000000000000
+  minor_unit_conversion: 100000000
   smallest_denomination: 1
   separator: "."
   delimiter: ","
   default_format: "%u%n"
-  default_precision: 18
+  default_precision: 8
 eth:
   name: Ethereum
   priority: 90
@@ -888,12 +888,12 @@ eth:
   html_code: "&#926;"
   symbol: "ETH"
   minor_unit: Wei
-  minor_unit_conversion: 1000000000000000000
+  minor_unit_conversion: 100000
   smallest_denomination: 1
   separator: "."
   delimiter: ","
   default_format: "%u%n"
-  default_precision: 18
+  default_precision: 5
 jep:
   name: Jersey Pound
   priority: 100
