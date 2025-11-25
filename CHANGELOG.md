@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.8] - 2024-11-25
+
+### Fixed
+- Added `converted_balance` method to Account model to fix production error
+- Currency conversion now works properly in all views
+- Multi-currency accounts display correctly with proper exchange rates
+
 ## [0.6.7] - 2024-11-25
 
 ### Added
