@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_11_21_140453) do
+ActiveRecord::Schema[7.2].define(version: 2025_11_25_131431) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -946,9 +946,17 @@ ActiveRecord::Schema[7.2].define(version: 2025_11_21_140453) do
     t.text "notes"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.decimal "amount_from", precision: 19, scale: 4
+    t.decimal "amount_to", precision: 19, scale: 4
+    t.string "currency_from"
+    t.string "currency_to"
+    t.boolean "same_currency", default: true, null: false
+    t.index ["currency_from"], name: "index_transfers_on_currency_from"
+    t.index ["currency_to"], name: "index_transfers_on_currency_to"
     t.index ["inflow_transaction_id", "outflow_transaction_id"], name: "idx_on_inflow_transaction_id_outflow_transaction_id_8cd07a28bd", unique: true
     t.index ["inflow_transaction_id"], name: "index_transfers_on_inflow_transaction_id"
     t.index ["outflow_transaction_id"], name: "index_transfers_on_outflow_transaction_id"
+    t.index ["same_currency"], name: "index_transfers_on_same_currency"
     t.index ["status"], name: "index_transfers_on_status"
   end
 

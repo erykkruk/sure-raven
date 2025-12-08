@@ -62,7 +62,20 @@ class Transfer < ApplicationRecord
   end
 
   def amount_abs
-    inflow_transaction&.entry&.amount_money&.abs
+    # Use the new amount_from field if available, otherwise fall back to old logic
+    if amount_from.present?
+      Money.new(amount_from.abs, currency_from)
+    else
+      inflow_transaction&.entry&.amount_money&.abs
+    end
+  end
+  
+  def amount_from_money
+    Money.new(amount_from.abs, currency_from) if amount_from.present? && currency_from.present?
+  end
+  
+  def amount_to_money
+    Money.new(amount_to.abs, currency_to) if amount_to.present? && currency_to.present?
   end
 
   def name
@@ -120,7 +133,7 @@ class Transfer < ApplicationRecord
       inflow_amount = inflow_entry.amount
       outflow_amount = outflow_entry.amount
 
-      if inflow_entry.currency == outflow_entry.currency
+      if same_currency || inflow_entry.currency == outflow_entry.currency
         # For same currency, amounts must be exactly opposite
         errors.add(:base, "Must have opposite amounts") if inflow_amount + outflow_amount != 0
       else
