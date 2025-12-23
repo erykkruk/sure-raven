@@ -2,7 +2,7 @@ class Import < ApplicationRecord
   MaxRowCountExceededError = Class.new(StandardError)
   MappingError = Class.new(StandardError)
 
-  TYPES = %w[TransactionImport TradeImport AccountImport MintImport CategoryImport].freeze
+  TYPES = %w[TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport].freeze
   SIGNAGE_CONVENTIONS = %w[inflows_positive inflows_negative]
   SEPARATORS = [ [ "Comma (,)", "," ], [ "Semicolon (;)", ";" ] ].freeze
 
@@ -244,7 +244,7 @@ class Import < ApplicationRecord
     end
 
     def default_currency
-      family.currency
+      account&.currency || family.currency
     end
 
     def parsed_csv

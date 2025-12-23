@@ -20,12 +20,22 @@ module ExchangeRate::Provided
 
       rate_data = response.data
       if cache
-        ExchangeRate.find_or_create_by!(
-          from_currency: rate_data.from,
-          to_currency: rate_data.to,
-          date: rate_data.date,
-          rate: rate_data.rate
-        )
+        begin
+          ExchangeRate.find_or_create_by!(
+            from_currency: rate_data.from,
+            to_currency: rate_data.to,
+            date: rate_data.date
+          ) do |exchange_rate|
+            exchange_rate.rate = rate_data.rate
+          end
+        rescue ActiveRecord::RecordNotUnique
+          # Race condition: another process inserted between our SELECT and INSERT
+          ExchangeRate.find_by!(
+            from_currency: rate_data.from,
+            to_currency: rate_data.to,
+            date: rate_data.date
+          )
+        end
       else
         # Return a temporary ExchangeRate object (not persisted) for consistency
         ExchangeRate.new(
