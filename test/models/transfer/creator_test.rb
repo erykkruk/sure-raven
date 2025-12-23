@@ -40,16 +40,17 @@ class Transfer::CreatorTest < ActiveSupport::TestCase
     assert_equal "Transfer from #{@source_account.name}", inflow.entry.name
   end
 
-  test "creates multi-currency transfer" do
-    # Use crypto account which has USD currency but different from source
-    crypto_account = accounts(:crypto)
+  test "creates multi-currency transfer with different amounts" do
+    eur_account = accounts(:eur_checking)
 
     creator = Transfer::Creator.new(
       family: @family,
       source_account_id: @source_account.id,
-      destination_account_id: crypto_account.id,
+      destination_account_id: eur_account.id,
       date: @date,
-      amount: @amount
+      amount_from: 100,
+      amount_to: 92,
+      same_currency: false
     )
 
     transfer = creator.create
@@ -58,16 +59,46 @@ class Transfer::CreatorTest < ActiveSupport::TestCase
     assert transfer.regular_transfer?
     assert_equal "transfer", transfer.transfer_type
 
-    # Verify outflow transaction
+    # Verify transfer stores both amounts and currencies
+    assert_equal 100, transfer.amount_from
+    assert_equal 92, transfer.amount_to
+    assert_equal "USD", transfer.currency_from
+    assert_equal "EUR", transfer.currency_to
+    assert_equal false, transfer.same_currency
+
+    # Verify outflow transaction (USD)
     outflow = transfer.outflow_transaction
     assert_equal "funds_movement", outflow.kind
-    assert_equal "Transfer to #{crypto_account.name}", outflow.entry.name
+    assert_equal 100, outflow.entry.amount
+    assert_equal "USD", outflow.entry.currency
+    assert_equal "Transfer to #{eur_account.name}", outflow.entry.name
 
-    # Verify inflow transaction with currency handling
+    # Verify inflow transaction (EUR with different amount)
     inflow = transfer.inflow_transaction
     assert_equal "funds_movement", inflow.kind
+    assert_equal(-92, inflow.entry.amount)
+    assert_equal "EUR", inflow.entry.currency
     assert_equal "Transfer from #{@source_account.name}", inflow.entry.name
-    assert_equal crypto_account.currency, inflow.entry.currency
+  end
+
+  test "creates multi-currency transfer with same_currency flag uses same amount" do
+    eur_account = accounts(:eur_checking)
+
+    creator = Transfer::Creator.new(
+      family: @family,
+      source_account_id: @source_account.id,
+      destination_account_id: eur_account.id,
+      date: @date,
+      amount_from: 100,
+      same_currency: true
+    )
+
+    transfer = creator.create
+
+    assert transfer.persisted?
+    assert_equal 100, transfer.amount_from
+    assert_equal 100, transfer.amount_to
+    assert_equal true, transfer.same_currency
   end
 
   test "creates loan payment" do

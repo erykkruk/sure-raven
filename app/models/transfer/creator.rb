@@ -5,7 +5,7 @@ class Transfer::Creator
     @destination_account = family.accounts.find(destination_account_id) # early throw if not found
     @date = date
     @same_currency = same_currency
-    
+
     # Handle both old and new parameter formats
     if amount_from.present?
       @amount_from = amount_from.to_d
@@ -56,7 +56,7 @@ class Transfer::Creator
 
     def inflow_transaction
       name = "#{name_prefix} from #{source_account.name}"
-      
+
       # Use the specific amount_to for multi-currency transfers
       inflow_amount = @same_currency ? @amount_from.abs : @amount_to.abs
 
@@ -69,21 +69,6 @@ class Transfer::Creator
           name: name,
         )
       )
-    end
-
-    # If destination account has different currency, we now use explicit amount_to instead of conversion
-    # This is now handled via the UI where user specifies both amounts
-    def inflow_converted_money
-      if @same_currency
-        Money.new(@amount_from.abs, source_account.currency)
-             .exchange_to(
-               destination_account.currency,
-               date: date,
-               fallback_rate: 1.0
-             )
-      else
-        Money.new(@amount_to.abs, destination_account.currency)
-      end
     end
 
     # The "expense" side of a transfer is treated different in analytics based on where it goes.

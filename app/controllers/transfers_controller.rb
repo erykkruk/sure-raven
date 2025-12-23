@@ -18,7 +18,7 @@ class TransfersController < ApplicationController
       destination_account_id: transfer_params[:to_account_id],
       date: transfer_params[:date]
     }
-    
+
     # Handle both new multi-currency params and legacy amount param
     if transfer_params[:amount_from].present?
       creator_params[:amount_from] = transfer_params[:amount_from].to_d
@@ -28,7 +28,7 @@ class TransfersController < ApplicationController
       # Legacy support
       creator_params[:amount] = transfer_params[:amount].to_d
     end
-    
+
     @transfer = Transfer::Creator.new(**creator_params).create
 
     if @transfer.persisted?
