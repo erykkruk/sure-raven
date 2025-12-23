@@ -89,3 +89,12 @@ crypto:
   accountable_type: Crypto
   accountable: one
   status: active
+
+eur_checking:
+  family: dylan_family
+  name: EUR Checking Account
+  balance: 3000
+  currency: EUR
+  accountable_type: Depository
+  accountable: one
+  status: active

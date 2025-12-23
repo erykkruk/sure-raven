@@ -104,4 +104,32 @@ class TransferTest < ActiveSupport::TestCase
       Transfer.create!(inflow_transaction: inflow_entry2.transaction, outflow_transaction: outflow_entry.transaction)
     end
   end
+
+  test "multi-currency transfer allows different amounts when same_currency is false" do
+    outflow_entry = create_transaction(date: Date.current, account: accounts(:depository), amount: 100, currency: "USD")
+    inflow_entry = create_transaction(date: Date.current, account: accounts(:eur_checking), amount: -92, currency: "EUR")
+
+    transfer = Transfer.new(
+      inflow_transaction: inflow_entry.transaction,
+      outflow_transaction: outflow_entry.transaction,
+      same_currency: false
+    )
+
+    assert transfer.valid?, "Transfer should be valid with different amounts when same_currency is false"
+    assert transfer.save
+  end
+
+  test "multi-currency transfer requires opposite signs" do
+    outflow_entry = create_transaction(date: Date.current, account: accounts(:depository), amount: 100, currency: "USD")
+    inflow_entry = create_transaction(date: Date.current, account: accounts(:eur_checking), amount: 92, currency: "EUR")
+
+    transfer = Transfer.new(
+      inflow_transaction: inflow_entry.transaction,
+      outflow_transaction: outflow_entry.transaction,
+      same_currency: false
+    )
+
+    assert transfer.invalid?
+    assert_equal "Must have opposite amounts", transfer.errors.full_messages.first
+  end
 end

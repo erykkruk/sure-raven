@@ -7,10 +7,13 @@ en:
       success: Transfer removed
     form:
       amount: Amount
+      amount_from: Amount from
+      amount_to: Amount to
       date: Date
       expense: Expense
       from: From
       income: Income
+      same_currency: Same currency transfer
       select_account: Select account
       submit: Create transfer
       to: To

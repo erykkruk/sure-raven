@@ -12,13 +12,24 @@ class TransfersController < ApplicationController
   end
 
   def create
-    @transfer = Transfer::Creator.new(
+    creator_params = {
       family: Current.family,
       source_account_id: transfer_params[:from_account_id],
       destination_account_id: transfer_params[:to_account_id],
-      date: transfer_params[:date],
-      amount: transfer_params[:amount].to_d
-    ).create
+      date: transfer_params[:date]
+    }
+
+    # Handle both new multi-currency params and legacy amount param
+    if transfer_params[:amount_from].present?
+      creator_params[:amount_from] = transfer_params[:amount_from].to_d
+      creator_params[:amount_to] = transfer_params[:amount_to].to_d if transfer_params[:amount_to].present?
+      creator_params[:same_currency] = transfer_params[:same_currency] == "1"
+    elsif transfer_params[:amount].present?
+      # Legacy support
+      creator_params[:amount] = transfer_params[:amount].to_d
+    end
+
+    @transfer = Transfer::Creator.new(**creator_params).create
 
     if @transfer.persisted?
       success_message = "Transfer created"
@@ -58,7 +69,7 @@ class TransfersController < ApplicationController
     end
 
     def transfer_params
-      params.require(:transfer).permit(:from_account_id, :to_account_id, :amount, :date, :name, :excluded)
+      params.require(:transfer).permit(:from_account_id, :to_account_id, :amount, :amount_from, :amount_to, :same_currency, :date, :name, :excluded)
     end
 
     def transfer_update_params
